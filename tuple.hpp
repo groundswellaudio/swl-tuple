@@ -1,5 +1,6 @@
 
-#pragma once
+#ifndef  SWL_CPP_LIBRARY_TUPLE_MAIN_HEADER
+#define SWL_CPP_LIBRARY_TUPLE_MAIN_HEADER
 
 #include <type_traits>
 
@@ -30,33 +31,19 @@ namespace impl {
 			using type = W<Ts...>;
 		};
 
-		template <template <class...> class WA, 
-				  template <class...> class WB,
+		template <template <class...> class W,
 				class... A, class... B, class... Rest>
-		struct list_cat<WA<A...>, WB<B...>, Rest...> {
-			using type = typename list_cat<WA<A..., B...>, Rest...>::type;
+		struct list_cat<W<A...>, W<B...>, Rest...> {
+			using type = typename list_cat<W<A..., B...>, Rest...>::type;
 		};
 		
-		
-		template <template <class...> class WA, 
-				  template <class...> class WB,
-				  template <class...> class WC,
-				  template <class...> class WD,
-				  template <class...> class WE,
-				  class... A, class... B, 
-				  class... C, class... D, class... E, class... Rest>
-		struct list_cat<WA<A...>, WB<B...>, WC<C...>, WD<D...>, WE<E...>, Rest...> {
-			using type = typename list_cat<WA<A..., B..., C..., D..., E...>, Rest...>::type;
-		};
-		
-		/* 
 		template <template <class...> class W, class... A, class... B, 
 				  class... C, class... D, class... E, class... Rest>
 		struct list_cat<W<A...>, W<B...>, W<C...>, W<D...>, W<E...>, Rest...> {
 			using type = typename list_cat<W<A..., B..., C..., D..., E...>, Rest...>::type;
-		}; */ 
+		}; 
 		
-		/* 
+		
 		template <template <class...> class W, class... A, class... B,
 				  class... C, class... D, class... E, class... F, class... G, 
 				  class... H, class... I, class... J, class... Tail>
@@ -64,7 +51,7 @@ namespace impl {
 						W<H...>, W<I...>, W<J...>, Tail...> {
 			using type = typename list_cat<W<A..., B..., C..., D..., E..., 
 									F..., G..., H..., I..., J...>, Tail...>::type;			
-		}; */ 
+		};
 
 		template <class... Args>
 		using list_cat_t = typename list_cat<Args...>::type;
@@ -137,7 +124,7 @@ class tuple{
     constexpr tuple(tuple&& o) 
     noexcept ( (std::is_nothrow_move_constructible_v<Ts> && ...) )
     requires ( (std::is_move_constructible_v<Ts> && ...) ) 
-    : memfn(std::move(o.memfn))
+    : memfn( decltype(o.memfn)(o.memfn) )
     {
     }
     
@@ -195,7 +182,7 @@ class tuple{
     {
     	apply(*this, [&other] (Ts&... this_elems)
     	{
-    		apply(std::forward<tuple<Types...>>(other), [&this_elems...] (auto&&... other_elems)
+    		apply(decltype(other)(other), [&this_elems...] (auto&&... other_elems)
     		{
     			((this_elems = decltype(other_elems)(other_elems)), ...);
     		});
@@ -232,7 +219,7 @@ class tuple{
     constexpr decltype(auto) m_apply(Fn&& fn) const & {
     	return const_cast<decltype(memfn)&>(memfn)( [&fn] (const auto&... elems) -> decltype(auto)
     	{	
-    		static_assert( (std::is_const_v<std::remove_reference_t<decltype(elems)>> && ...) );			     
+    		//static_assert( (std::is_const_v<std::remove_reference_t<decltype(elems)>> && ...) );			     
     		return static_cast<Fn&&>(fn)( elems... );
     	});
     }
@@ -241,7 +228,7 @@ class tuple{
     constexpr decltype(auto) m_apply(Fn&& fn) const && {
     	return const_cast<decltype(memfn)&>(memfn)( [&fn] (auto&... elems) -> decltype(auto)
     	{	
-    		static_assert( (std::is_const_v<std::remove_reference_t<decltype(static_cast<Ts&&>(elems))>> && ...) );					  
+    		//static_assert( (std::is_const_v<std::remove_reference_t<decltype(static_cast<Ts&&>(elems))>> && ...) );					  
     		return static_cast<Fn&&>(fn)( static_cast<const Ts&&>(elems)... );
     	});
     }
@@ -300,15 +287,20 @@ constexpr bool operator < (const tuple<Us...>& a, const tuple<Vs...>& b){
 
 template <class... Us, class... Vs>
 constexpr bool operator > (const tuple<Us...>& a, const tuple<Vs...>& b){
-	return apply(a, [&b] (auto&... a_mem) -> bool
-	{
-		return apply(b, [&a_mem...] (auto&... b_mem) -> bool
-		{	
-			return ( (((a_mem > b_mem) || not (b_mem < a_mem)) && ...)  );
-		});
-	});
+	return b < a;
 }
 
+template <class... Us, class... Vs>
+constexpr bool operator >= (const tuple<Us...>& a, const tuple<Vs...>& b){
+	return not (a < b);
+}
+
+template <class... Us, class... Vs>
+constexpr bool operator <= (const tuple<Us...>& a, const tuple<Vs...>& b){
+	return not (b < a);
+}
+
+/* 
 namespace tuple_cat_v1
 {
 	template <class A, class B>
@@ -331,7 +323,7 @@ namespace tuple_cat_v1
 	auto tuple_cat(A&& a, B&& b, C&& c, Tail&&... tail){
 		return tuple_cat(tuple_cat(a, b), decltype(c)(c), decltype(tail)(tail)...);
 	}
-}
+} */ 
 
 inline namespace tuple_cat_v2 {
 	
@@ -371,7 +363,7 @@ inline namespace tuple_cat_v2 {
 			});
 		};
 		
-		return tuple_cat_tail(std::move(fn), static_cast<B&&>(b), static_cast<Tail&&>(tail)...);
+		return tuple_cat_tail(static_cast<decltype(fn)&&>(fn), static_cast<B&&>(b), static_cast<Tail&&>(tail)...);
 	}
 }
 
@@ -390,6 +382,6 @@ constexpr tuple<Args&&...> forward_as_tuple(Args&&... args) noexcept {
 	return tuple<Args&&...>( decltype(args)(args)... );
 }
 
-// ======================================================================================
-
 } // SWL
+
+#endif
