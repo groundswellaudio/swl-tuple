@@ -2,7 +2,6 @@
 #pragma once
 
 #include <type_traits>
-#include <utility>
 
 namespace swl {
 
@@ -102,7 +101,7 @@ namespace impl {
 
 	template <class... Args>
 	auto make_tuple_impl(Args... args){
-		return [...args = element_wrapper<Args>{std::forward<Args>(args)}] (auto&& fn) mutable -> decltype(auto) {
+		return [...args = element_wrapper<Args>{static_cast<Args&&>(args)}] (auto&& fn) mutable -> decltype(auto) {
 			return decltype(fn)(fn)( args.elem... );
 		};
 	}
@@ -130,7 +129,7 @@ class tuple{
     template <class... Args>
     explicit constexpr tuple(Args&&... args) 
     noexcept ( (std::is_nothrow_constructible_v<Ts, Args&&> && ...) )
-    : memfn( impl::make_tuple_impl<Ts...>(std::forward<Args>(args)...) ) 
+    : memfn( impl::make_tuple_impl<Ts...>( static_cast<Args&&>(args)... ) ) 
     {
     }
     
