@@ -31,17 +31,33 @@ namespace impl {
 			using type = W<Ts...>;
 		};
 
-		template <template <class...> class W, class... A, class... B, class... Rest>
-		struct list_cat<W<A...>, W<B...>, Rest...> {
-			using type = typename list_cat<W<A..., B...>, Rest...>::type;
+		template <template <class...> class WA, 
+				  template <class...> class WB,
+				class... A, class... B, class... Rest>
+		struct list_cat<WA<A...>, WB<B...>, Rest...> {
+			using type = typename list_cat<WA<A..., B...>, Rest...>::type;
 		};
 		
+		
+		template <template <class...> class WA, 
+				  template <class...> class WB,
+				  template <class...> class WC,
+				  template <class...> class WD,
+				  template <class...> class WE,
+				  class... A, class... B, 
+				  class... C, class... D, class... E, class... Rest>
+		struct list_cat<WA<A...>, WB<B...>, WC<C...>, WD<D...>, WE<E...>, Rest...> {
+			using type = typename list_cat<WA<A..., B..., C..., D..., E...>, Rest...>::type;
+		};
+		
+		/* 
 		template <template <class...> class W, class... A, class... B, 
 				  class... C, class... D, class... E, class... Rest>
 		struct list_cat<W<A...>, W<B...>, W<C...>, W<D...>, W<E...>, Rest...> {
 			using type = typename list_cat<W<A..., B..., C..., D..., E...>, Rest...>::type;
-		};
+		}; */ 
 		
+		/* 
 		template <template <class...> class W, class... A, class... B,
 				  class... C, class... D, class... E, class... F, class... G, 
 				  class... H, class... I, class... J, class... Tail>
@@ -49,7 +65,7 @@ namespace impl {
 						W<H...>, W<I...>, W<J...>, Tail...> {
 			using type = typename list_cat<W<A..., B..., C..., D..., E..., 
 									F..., G..., H..., I..., J...>, Tail...>::type;			
-		};
+		}; */ 
 
 		template <class... Args>
 		using list_cat_t = typename list_cat<Args...>::type;
@@ -201,7 +217,7 @@ class tuple{
     }
     
     template <class Fn>
-    constexpr decltype(auto) m_apply(Fn&& fn) & c{
+    constexpr decltype(auto) m_apply(Fn&& fn) & {
     	return memfn( decltype(fn)(fn) );
     }
     
@@ -216,7 +232,8 @@ class tuple{
     template <class Fn>
     constexpr decltype(auto) m_apply(Fn&& fn) const & {
     	return const_cast<decltype(memfn)&>(memfn)( [&fn] (const auto&... elems) -> decltype(auto)
-    	{								     
+    	{	
+    		static_assert( (std::is_const_v<std::remove_reference_t<decltype(elems)>> && ...) );			     
     		return static_cast<Fn&&>(fn)( elems... );
     	});
     }
@@ -224,7 +241,8 @@ class tuple{
     template <class Fn>
     constexpr decltype(auto) m_apply(Fn&& fn) const && {
     	return const_cast<decltype(memfn)&>(memfn)( [&fn] (auto&... elems) -> decltype(auto)
-    	{									  
+    	{	
+    		static_assert( (std::is_const_v<std::remove_reference_t<decltype(static_cast<Ts&&>(elems))>> && ...) );					  
     		return static_cast<Fn&&>(fn)( static_cast<const Ts&&>(elems)... );
     	});
     }
@@ -329,7 +347,7 @@ inline namespace tuple_cat_v2 {
 		auto tuple_cat_tail(Fn&& fn, Head&& head, Tail&&... tail){
 			return tuple_cat_tail( [&fn, &head] (auto&&... elems) 
 			{
-				return apply( decltype(head)(head), 
+				return apply( static_cast<Head&&>(head), 
 							  [&elems..., &fn] (auto&&... head_elems)
 							  {	
 							       return fn(decltype(head_elems)(head_elems)..., 
@@ -337,7 +355,7 @@ inline namespace tuple_cat_v2 {
 							  }
 							);
 							
-			},	decltype(tail)(tail)... );
+			},	static_cast<Tail&&>(tail)... );
 		}
 	}
 	
@@ -346,7 +364,7 @@ inline namespace tuple_cat_v2 {
 		using Result = impl::meta::list_cat_t<std::decay_t<A>, std::decay_t<B>, std::decay_t<Tail>...>;
 	
 		auto fn = [&a] (auto&&... elems) {
-			return apply( decltype(a)(a), [&elems...] (auto&&... a_mem) 
+			return apply( static_cast<A&&>(a), [&elems...] (auto&&... a_mem) 
 			{
 				// lambda capture by rvalue references when possible, 
 				// so we don't need to do anything more than ref-capture + forward
@@ -354,7 +372,7 @@ inline namespace tuple_cat_v2 {
 			});
 		};
 		
-		return tuple_cat_tail(fn, decltype(b)(b), decltype(tail)(tail)...);
+		return tuple_cat_tail(std::move(fn), static_cast<B&&>(b), static_cast<Tail&&>(tail)...);
 	}
 }
 
