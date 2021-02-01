@@ -1,5 +1,5 @@
 
-#ifndef  SWL_CPP_LIBRARY_TUPLE_MAIN_HEADER
+#ifndef SWL_CPP_LIBRARY_TUPLE_MAIN_HEADER
 #define SWL_CPP_LIBRARY_TUPLE_MAIN_HEADER
 
 #include <type_traits>
@@ -179,6 +179,7 @@ class tuple{
     template <class... Types>
     constexpr tuple& operator=(tuple<Types...>&& other)
     noexcept ( (std::is_nothrow_assignable_v<Ts, Types&&> && ...) )
+    requires ( tuple<Types...>::size == size && (std::is_assignable_v<Ts, Types&&> && ...) )
     {
     	apply(*this, [&other] (Ts&... this_elems)
     	{
@@ -246,7 +247,7 @@ constexpr decltype(auto) apply(Self&& self, Fn&& fn){
 
 template <std::size_t N, class Self> 
 requires impl::meta::is_swl_tuple_v<Self> && (N < std::decay_t<Self>::size) 
-constexpr decltype(auto) get(Self&& self) noexcept {
+constexpr auto&& get(Self&& self) noexcept {
 	return apply(decltype(self)(self), [] (auto&&... elems) -> decltype(auto)
 	{ 	
 		return impl::tuple_getter<N>(decltype(elems)(elems)...); 
@@ -255,7 +256,7 @@ constexpr decltype(auto) get(Self&& self) noexcept {
 
 template <class T, class Self> 
 requires impl::meta::is_swl_tuple_v<Self>
-constexpr decltype(auto) get(Self&& self) noexcept {
+constexpr auto&& get(Self&& self) noexcept {
 	constexpr auto idx = std::decay_t<Self>::template index_of_type<T>();
 	return get<idx>(decltype(self)(self));
 }
@@ -328,7 +329,6 @@ namespace tuple_cat_v1
 inline namespace tuple_cat_v2 {
 	
 	namespace {
-		
 		template <class Fn>
 		auto tuple_cat_tail(Fn&& fn){
 			return fn();

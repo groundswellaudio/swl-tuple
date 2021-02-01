@@ -31,3 +31,4 @@
 *.out
 *.app
 lambda_tuple.cpp
+.DS_Store
