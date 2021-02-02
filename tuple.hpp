@@ -11,7 +11,7 @@ class tuple;
 
 namespace impl {
 	
-	
+	/* 
 	namespace debug {
 		template <class... Args>
 		inline constexpr bool always_false = false;
@@ -20,7 +20,7 @@ namespace impl {
 		struct show_type {
 			static_assert( always_false<Args...> );
 		};
-	} // DEBUG 
+	} // DEBUG  */ 
 	
 	namespace meta {
 		
@@ -108,28 +108,28 @@ namespace impl {
 
 template <class... Ts>
 class tuple{
-    
-    public : 
-    
-    static constexpr std::size_t size = sizeof...(Ts);
-    
-    // default ctor
-    constexpr tuple() 
-    noexcept ( (std::is_nothrow_default_constructible_v<Ts> && ...) ) 
-    requires ( (std::is_default_constructible_v<Ts> && ...) )
-    : memfn( impl::make_tuple_impl<Ts...>(Ts{}...)) 
-    {
-    }
-    
-    // explicit ctor
-    template <class... Args>
-    explicit constexpr tuple(Args&&... args) 
-    noexcept ( (std::is_nothrow_constructible_v<Ts, Args&&> && ...) )
-    : memfn( impl::make_tuple_impl<Ts...>( static_cast<Args&&>(args)... ) ) 
-    {
-    }
-    
-    // move ctor
+
+	public : 
+	
+	static constexpr std::size_t size = sizeof...(Ts);
+	
+	// default ctor
+	constexpr tuple() 
+	noexcept ( (std::is_nothrow_default_constructible_v<Ts> && ...) ) 
+	requires ( (std::is_default_constructible_v<Ts> && ...) )
+	: memfn( impl::make_tuple_impl<Ts...>(Ts{}...)) 
+	{
+	}
+	
+	// explicit ctor
+	template <class... Args>
+	explicit constexpr tuple(Args&&... args) 
+	noexcept ( (std::is_nothrow_constructible_v<Ts, Args&&> && ...) )
+	: memfn( impl::make_tuple_impl<Ts...>( static_cast<Args&&>(args)... ) ) 
+	{
+	}
+	
+	// move ctor
 	constexpr tuple(tuple&& o) 
 	noexcept ( (std::is_nothrow_move_constructible_v<Ts> && ...) )
 	requires ( (std::is_move_constructible_v<Ts> && ...) ) 
