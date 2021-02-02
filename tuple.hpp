@@ -311,12 +311,12 @@ constexpr bool operator <= (const tuple<Us...>& a, const tuple<Vs...>& b){
 namespace 
 {
 	template <class Fn>
-	auto tuple_cat_tail(Fn&& fn){
+	constexpr auto tuple_cat_tail(Fn&& fn){
 		return fn();
 	}
 	
 	template <class Fn, class Head, class... Tail>
-	auto tuple_cat_tail(Fn&& fn, Head&& head, Tail&&... tail){
+	constexpr auto tuple_cat_tail(Fn&& fn, Head&& head, Tail&&... tail){
 		return tuple_cat_tail( [&fn, &head] (auto&&... elems) 
 		{
 			return apply( decltype(head)(head), [&elems..., &fn] (auto&&... head_elems) 
@@ -328,7 +328,8 @@ namespace
 }
 
 template <class A, class B, class... Tail>
-auto tuple_cat(A&& a, B&& b, Tail&&... tail){
+requires impl::meta::is_swl_tuple_v<A, B, Tail...>
+constexpr auto tuple_cat(A&& a, B&& b, Tail&&... tail){
 	using Result = impl::meta::list_cat_t<std::decay_t<A>, std::decay_t<B>, std::decay_t<Tail>...>;
 	
 	return tuple_cat_tail( [&a] (auto&&... pack) 
