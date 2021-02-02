@@ -11,6 +11,7 @@ class tuple;
 
 namespace impl {
 	
+	
 	/* 
 	namespace debug {
 		template <class... Args>
@@ -20,17 +21,9 @@ namespace impl {
 		struct show_type {
 			static_assert( always_false<Args...> );
 		};
-	} // DEBUG  */ 
+	} // DEBUG   */ 
 	
 	namespace meta {
-		
-		template <class T> struct identity { using type = T; };
-		
-		template <std::size_t Idx, class Head, class... Ts>
-		constexpr auto type_at_index(){
-			if constexpr (Idx == 0) return identity<Head>{};
-			else return type_at_index<Idx - 1, Ts...>();
-		}
 		
 		template <class... Args>
 		struct list_cat;
@@ -91,12 +84,17 @@ namespace impl {
 	}
 
 	template <class T>
-	struct element_wrapper {	
-		T elem;
+	struct element_wrapper {
+		element_wrapper(T&& r) 
+		: elem( static_cast<T&&>(r) )
+		{
+		}
+		
+		T&& elem;
 	};
 
 	template <class... Args>
-	auto make_tuple_impl(Args... args){
+	auto make_tuple_impl(Args&&... args) noexcept {
 		return [...args = element_wrapper<Args>{static_cast<Args&&>(args)}] (auto&& fn) mutable -> decltype(auto) {
 			return decltype(fn)(fn)( args.elem... );
 		};
@@ -122,10 +120,10 @@ class tuple{
 	}
 	
 	// explicit ctor
-	template <class... Args>
+	template <class... Args> requires ( (std::is_constructible_v<Ts, Args&&> && ...) )
 	explicit constexpr tuple(Args&&... args) 
 	noexcept ( (std::is_nothrow_constructible_v<Ts, Args&&> && ...) )
-	: memfn( impl::make_tuple_impl<Ts...>( static_cast<Args&&>(args)... ) ) 
+	: memfn( impl::make_tuple_impl<Ts...>( Ts{static_cast<Args&&>(args)}... ) )
 	{
 	}
 	
@@ -141,9 +139,10 @@ class tuple{
 	template <class... Types>
 	constexpr tuple(tuple<Types...>&& o)
 	noexcept ( (std::is_nothrow_constructible_v<Ts, Types&&> && ...) )
+	requires ( (std::is_constructible_v<Ts, Types&&> && ...) )
 	: memfn( apply(decltype(o)(o), [] (auto&&... args) 
 	{
-		return impl::make_tuple_impl<Ts...>(static_cast<Types&&>(args)...);
+		return impl::make_tuple_impl<Ts...>( Ts{static_cast<Types&&>(args)}... );
 	}))
 	{
 	}
@@ -160,10 +159,10 @@ class tuple{
 	template <class... Types>
 	constexpr tuple(const tuple<Types...>& other)
 	noexcept ( (std::is_nothrow_constructible_v<Ts, const Types&> && ... ) )
-	requires ( tuple<Types...>::size == size && (std::is_constructible_v<Ts, const Types&> && ...) )
+	requires ( (std::is_constructible_v<Ts, const Types&> && ...) )
 	: memfn( apply(other, [] (const auto&... elems) 
 	{
-		return impl::make_tuple_impl<Ts...>(elems...);
+		return impl::make_tuple_impl<Ts...>( Ts{elems}... );
 	}))
 	{
 	}
@@ -172,7 +171,7 @@ class tuple{
 	template <class... Types>
 	constexpr tuple& operator=(const tuple<Types...>& other)
 	noexcept ( (std::is_nothrow_assignable_v<Ts, const Types&> && ...) )
-	requires ( tuple<Types...>::size == size  && (std::is_assignable_v<Ts, const Types&> && ...) )
+	requires ( (std::is_assignable_v<Ts, const Types&> && ...) )
 	{
 		apply(*this, [&other] (auto&... this_elems)
 		{
@@ -188,7 +187,7 @@ class tuple{
 	template <class... Types>
 	constexpr tuple& operator=(tuple<Types...>&& other)
 	noexcept ( (std::is_nothrow_assignable_v<Ts, Types&&> && ...) )
-	requires ( tuple<Types...>::size == size && (std::is_assignable_v<Ts, Types&&> && ...) )
+	requires ( (std::is_assignable_v<Ts, Types&&> && ...) )
 	{
 		apply(*this, [&other] (Ts&... this_elems)
 		{
@@ -317,7 +316,7 @@ namespace
 	
 	template <class Fn, class Head, class... Tail>
 	constexpr auto tuple_cat_tail(Fn&& fn, Head&& head, Tail&&... tail){
-		return tuple_cat_tail( [&fn, &head] (auto&&... elems) 
+		return tuple_cat_tail( [&head, &fn] (auto&&... elems) 
 		{
 			return apply( decltype(head)(head), [&elems..., &fn] (auto&&... head_elems) 
 			{	
@@ -329,7 +328,7 @@ namespace
 
 template <class A, class B, class... Tail>
 requires impl::meta::is_swl_tuple_v<A, B, Tail...>
-constexpr auto tuple_cat(A&& a, B&& b, Tail&&... tail){
+constexpr auto tuple_cat(A&& a, B&& b, Tail&&... tail) {
 	using Result = impl::meta::list_cat_t<std::decay_t<A>, std::decay_t<B>, std::decay_t<Tail>...>;
 	
 	return tuple_cat_tail( [&a] (auto&&... pack) 
@@ -351,7 +350,7 @@ constexpr auto tuple_cat(A&& a, B&& b, Tail&&... tail){
 
 template <class... Args>
 constexpr auto make_tuple(Args&&... args){
-	return tuple<std::remove_cvref_t<Args>...>(decltype(args)(args)...);
+	return tuple<std::decay_t<Args>...>(decltype(args)(args)...);
 }
 
 template <class... Args>
@@ -360,32 +359,10 @@ constexpr tuple<Args&...> tie (Args&... args) noexcept {
 }
 
 template <class... Args>
-constexpr tuple<Args&&...> forward_as_tuple(Args&&... args) noexcept {
+constexpr tuple<Args...> forward_as_tuple(Args&&... args) noexcept {
 	return tuple<Args&&...>( decltype(args)(args)... );
 }
 
 } // SWL
-
-namespace std {
-	
-	// forward declarations in the std namespace: this is ok because those 
-	// classes are meant to be specialized
-	template <class T>
-	class tuple_size;
-	
-	template <std::size_t Idx, class T>
-	class tuple_element;
-	
-	template <class... Ts>
-	class tuple_size<::swl::tuple<Ts...>> {
-		public : static constexpr std::size_t value = sizeof...(Ts);
-	};
-
-	template <std::size_t Idx, class... Ts>
-	class tuple_element<Idx, ::swl::tuple<Ts...>> { 
-		public : using type = typename decltype( ::swl::impl::meta::type_at_index<Idx, Ts...>() )::type;
-	};
-
-} // STD 
 
 #endif
