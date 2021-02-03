@@ -72,7 +72,7 @@ namespace impl {
 	} // META
 
 	template <std::size_t Clk, class Head, class... Args>
-	auto&& tuple_getter(Head&& h, Args&&... args) noexcept {
+	constexpr auto&& tuple_getter(Head&& h, Args&&... args) noexcept {
 		if constexpr (Clk == 0) return decltype(h)(h);
 		else return tuple_getter<Clk - 1>(decltype(args)(args)...);
 	}
@@ -85,16 +85,11 @@ namespace impl {
 
 	template <class T>
 	struct element_wrapper {
-		element_wrapper(T&& r) 
-		: elem( static_cast<T&&>(r) )
-		{
-		}
-		
-		T&& elem;
+		T elem;
 	};
 
 	template <class... Args>
-	auto make_tuple_impl(Args&&... args) noexcept {
+	constexpr auto make_tuple_impl(Args&&... args) {
 		return [...args = element_wrapper<Args>{static_cast<Args&&>(args)}] (auto&& fn) mutable -> decltype(auto) {
 			return decltype(fn)(fn)( args.elem... );
 		};
@@ -283,13 +278,16 @@ constexpr bool operator != (const tuple<Us...>& u, const tuple<Vs...>& v){
 
 template <class... Us, class... Vs>
 constexpr bool operator < (const tuple<Us...>& a, const tuple<Vs...>& b){
-	return apply(a, [&b] (auto&... a_mem) -> bool
-	{
-		return apply(b, [&a_mem...] (auto&... b_mem) -> bool
-		{	
-			return ( (((a_mem < b_mem) || not (b_mem > a_mem)) && ...)  );
-		});
-	});
+	auto impl = [&a, &b] (auto& self, auto I) -> bool {
+		if constexpr ( I == sizeof...(Us) ) return false;
+		else {
+			const auto& ae = get<I>(a);
+			const auto& be = get<I>(b);
+			if (ae < be) return true;
+			else return not(be > ae) && self(self, std::integral_constant<std::size_t, I + 1>{});
+		}
+	};
+	return impl(impl, std::integral_constant<std::size_t, 0>{});
 }
 
 template <class... Us, class... Vs>
