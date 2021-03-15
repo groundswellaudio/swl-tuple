@@ -45,7 +45,6 @@ namespace impl {
 			using type = typename list_cat<W<A..., B..., C..., D..., E...>, Rest...>::type;
 		}; 
 		
-		
 		template <template <class...> class W, class... A, class... B,
 				  class... C, class... D, class... E, class... F, class... G, 
 				  class... H, class... I, class... J, class... Tail>
@@ -114,9 +113,9 @@ class tuple{
 	{
 	}
 	
-	// explicit ctor
+	// generic ctor
 	template <class... Args> requires ( (std::is_constructible_v<Ts, Args&&> && ...) )
-	explicit constexpr tuple(Args&&... args) 
+	constexpr tuple(Args&&... args) 
 	noexcept ( (std::is_nothrow_constructible_v<Ts, Args&&> && ...) )
 	: memfn( impl::make_tuple_impl<Ts...>( Ts{static_cast<Args&&>(args)}... ) )
 	{
@@ -305,15 +304,14 @@ constexpr bool operator <= (const tuple<Us...>& a, const tuple<Vs...>& b){
 	return not (b < a);
 }
 
-namespace 
-{
+namespace impl {
 	template <class Fn>
-	constexpr auto tuple_cat_tail(Fn&& fn){
+	constexpr auto tuple_cat_tail(Fn&& fn) noexcept {
 		return fn();
 	}
 	
 	template <class Fn, class Head, class... Tail>
-	constexpr auto tuple_cat_tail(Fn&& fn, Head&& head, Tail&&... tail){
+	constexpr auto tuple_cat_tail(Fn&& fn, Head&& head, Tail&&... tail) noexcept {
 		return tuple_cat_tail( [&head, &fn] (auto&&... elems) 
 		{
 			return apply( decltype(head)(head), [&elems..., &fn] (auto&&... head_elems) 
@@ -339,11 +337,6 @@ constexpr auto tuple_cat(A&& a, B&& b, Tail&&... tail) {
 		});
 	},	decltype(b)(b), decltype(tail)(tail)... );
 	
-	/* // this is a more elegant version, however it compiles a tiny bit slower? not sure
-	return tuple_cat_tail( [] (auto&&... elems) 
-	{
-		return Result{ decltype(elems)(elems)... };
-	}, static_cast<A&&>(a), static_cast<B&&>(b), static_cast<Tail&&>(tail)... ); */ 
 }
 
 template <class... Args>
@@ -357,7 +350,7 @@ constexpr tuple<Args&...> tie (Args&... args) noexcept {
 }
 
 template <class... Args>
-constexpr tuple<Args...> forward_as_tuple(Args&&... args) noexcept {
+constexpr tuple<Args&&...> forward_as_tuple(Args&&... args) noexcept {
 	return tuple<Args&&...>( decltype(args)(args)... );
 }
 
