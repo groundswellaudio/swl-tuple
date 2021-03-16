@@ -327,7 +327,7 @@ requires impl::meta::is_swl_tuple_v<A, B, Tail...>
 constexpr auto tuple_cat(A&& a, B&& b, Tail&&... tail) {
 	using Result = impl::meta::list_cat_t<std::decay_t<A>, std::decay_t<B>, std::decay_t<Tail>...>;
 	
-	return tuple_cat_tail( [&a] (auto&&... pack) 
+	return impl::tuple_cat_tail( [&a] (auto&&... pack) 
 	{
 		return apply( decltype(a)(a), [&pack...] (auto&&... a_mem) 
 		{	
