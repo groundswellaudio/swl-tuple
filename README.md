@@ -1,4 +1,3 @@
-# swl-tuple
 Proof of concept implementation of a tuple, using a lambda as storage. On concatenation heavy code, it compiles about 20 times faster than the std, and between 2 and 7 times faster than [tao::tuple](https://github.com/taocpp/tuple). However, using the lambda capture as memory means that the members cannot be constructed in place, they have to be copied/moved, so this technic cannot be used to implement a standard conforming tuple (and this tuple cannot be used to with non-movable, non-copyable objects).
 
 I've written an article about it [here](https://groundswellaudio.github.io/posts/cpp_lambda_tuple/).
